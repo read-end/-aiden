@@ -2,13 +2,14 @@
 
 # 🤖 Aiden — AI Personal Assistant
 
-**A modular, extensible AI assistant with plugin architecture, web search, code analysis, and zero-config deployment.**
+**A modular, extensible AI assistant with plugin architecture, web search, code analysis, 企业微信 integration, and zero-config deployment.**
 
 [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Claude API](https://img.shields.io/badge/Claude_AI-API-CC794B?logo=anthropic)](https://docs.anthropic.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/your-username/aiden/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/aiden/actions/workflows/ci.yml)
+[![WeCom](https://img.shields.io/badge/WeCom-集成-07C160?logo=wechat-work)](https://developer.work.weixin.qq.com/)
 
 </div>
 
@@ -22,9 +23,10 @@
 | 🔌 **Plugin Architecture** | Extensible tool system — add new capabilities without touching core logic |
 | 🌐 **Web Search** | Real-time information retrieval via DuckDuckGo (no API key required) |
 | 📄 **Code Analysis** | Read, analyze, and inspect code files with AST-based structure extraction |
+| 💼 **WeCom Integration** | Bidirectional messaging with 企业微信 (WeChat Work) — AES-256-CBC encrypted callbacks |
 | 🌍 **Dual Interface** | Web UI (Streamlit) + CLI REPL + REST API |
 | 🐳 **Docker Ready** | One-command deployment with docker-compose |
-| ✅ **Fully Tested** | pytest suite with async support |
+| ✅ **Fully Tested** | pytest suite with async support (43 tests) |
 
 ---
 
@@ -37,7 +39,12 @@
 │  │ Streamlit│  │   CLI    │  │  REST API      │ │
 │  │  Web UI  │  │   REPL   │  │  (FastAPI)     │ │
 │  └────┬─────┘  └────┬─────┘  └───────┬────────┘ │
-├───────┴─────────────┴─────────────────┴──────────┤
+│       │             │                │          │
+│  ┌────┴─────────────┴────────────────┴──────────┐│
+│  │          企业微信 (WeCom) 回调集成            ││
+│  │  (AES-256-CBC 加解密 + SHA1 签名校验)        ││
+│  └─────────────────────┬─────────────────────────┘│
+├────────────────────────┼──────────────────────────┤
 │                    Core Engine                    │
 │  ┌────────────────────────────────────────────┐  │
 │  │  Agent Orchestrator (Engine)               │  │
@@ -139,6 +146,58 @@ Let me check the details...
 
 ---
 
+## 💼 企业微信 (WeCom) 集成
+
+Aiden 支持与 **企业微信自建应用** 双向通信：
+- 用户在企微中发送消息 → 回调到 Aiden → Claude AI 处理 → 回复到企微
+- 支持 AES-256-CBC 加密消息的自动加解密
+- 支持文本消息、Markdown、图文卡片等多种消息类型
+- 支持 `/help`、`/clear`、`/stats` 等本地命令
+
+### 配置步骤
+
+1. **登录 [企业微信管理后台](https://work.weixin.qq.com/wework_admin/frame)** → 应用管理 → 自建 → 创建应用
+
+2. **获取凭证**：
+   - CorpID：我的企业 → 企业信息 → CorpID
+   - AgentID 和 Secret：应用管理 → 你的应用 → 获取
+
+3. **设置回调 URL**：
+   ```
+   应用功能 → 接收消息 → 设置接收消息
+   ```
+   - URL: `http://你的域名/api/v1/wecom/callback`
+   - Token: 随机字符串，如 `aiden123token`
+   - EncodingAESKey: 点击"随机获取"
+
+4. **配置环境变量**：
+   ```bash
+   WECOM_CORP_ID=wwxxxxxxxx
+   WECOM_AGENT_ID=1000001
+   WECOM_SECRET=xxxxxxxxxxxx
+   WECOM_TOKEN=xxxxxxxxxx
+   WECOM_ENCODING_AES_KEY=xxxxxxxxxxxxxxxxxx
+   ```
+
+5. **启动 Aiden 并验证**：
+   ```bash
+   uvicorn aiden.api.server:app
+   ```
+   在企微后台点击"保存"完成 URL 验证。
+
+### 架构
+
+```
+企业微信 App ──→ 回调请求 ──→ FastAPI ──→ WeComCrypto ──→ WeComHandler ──→ Aiden Engine
+                  (AES加密)     /callback    (解密)         (路由消息)         (AI处理)
+                                                            │
+                                                            ↓
+企业微信 App ←── 主动推送  ←── WeComClient ←── 回复结果
+                  (API调用)
+```
+
+---
+
 ## 🔧 Extending: Adding a Plugin
 
 Adding a new capability is straightforward:
@@ -196,6 +255,11 @@ aiden/
 │       └── repl.py               # Interactive REPL
 ├── web/                          # Streamlit frontend
 │   └── app.py                    # Web UI
+├── aiden/wecom/                  # 企业微信集成
+│   ├── crypto.py                 # AES-256-CBC 加解密
+│   ├── client.py                 # API 客户端 (Token + 消息推送)
+│   ├── handler.py                # 消息路由和 AI 处理
+│   └── routes.py                 # FastAPI 回调接口
 ├── tests/                        # Test suite
 │   ├── test_memory.py
 │   ├── test_plugins.py

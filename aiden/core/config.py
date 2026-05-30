@@ -45,6 +45,21 @@ class Settings:
     search_provider: str = os.getenv("SEARCH_PROVIDER", "duckduckgo")
     search_api_key: Optional[str] = os.getenv("SEARCH_API_KEY", None)
 
+    # ── WeCom (企业微信) ───────────────────────────────────────
+    wecom_corp_id: str = field(
+        default_factory=lambda: os.getenv("WECOM_CORP_ID", "")
+    )
+    wecom_agent_id: int = int(os.getenv("WECOM_AGENT_ID", "0"))
+    wecom_secret: str = field(
+        default_factory=lambda: os.getenv("WECOM_SECRET", "")
+    )
+    wecom_token: str = field(
+        default_factory=lambda: os.getenv("WECOM_TOKEN", "")
+    )
+    wecom_encoding_aes_key: str = field(
+        default_factory=lambda: os.getenv("WECOM_ENCODING_AES_KEY", "")
+    )
+
     # ── Logging ──────────────────────────────────────────────
     verbose: bool = os.getenv("VERBOSE", "0") == "1"
 
